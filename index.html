@@ -95,7 +95,7 @@
 
     <script type="text/babel">
         // --- TEMPELKAN URL GOOGLE APPS SCRIPT WEB APP ANDA DI BAWAH INI ---
-        const gasUrl = 'https://script.google.com/macros/s/AKfycbyFlQm1sk-y7Lsd8wE0kxlc5igT-Mckzf9qmUU63GrqHwLiQu2MjPWejqEv3niG9UxBRw/exec'; 
+        const gasUrl = 'https://script.google.com/macros/s/AKfycbwQ_IiQkZqdc_XE5oFBl2-z3oXUjGIBIrLKPWz97cA1SX5r4MHEWlWoAwlUm5V329C9LA/exec'; 
 
         // Custom SVG Icons
         const Icons = {
@@ -210,7 +210,7 @@
                                 <Icons.Logo />
                             </div>
                             <h2 className="text-2xl font-black text-slate-900 tracking-tight">RAKU Invoice Pro</h2>
-                            <p className="text-slate-500 text-sm mt-1">Sistem Invoice Otomatis ,mudah & praktis</p>
+                            <p className="text-slate-500 text-sm mt-1">Sistem invoicing instan dengan cloud backend</p>
                         </div>
 
                         {message.text && (
@@ -291,7 +291,7 @@
 
             React.useEffect(() => {
                 const handleResize = () => {
-                    if (!previewContainerRef.current) return;
+                    if (!previewContainerRef.current || isGenerating) return;
                     const parentWidth = previewContainerRef.current.clientWidth;
                     const targetWidth = 1122; // Lebar standar kertas A4 Landscape (297mm) dalam Pixel
                     if (parentWidth < targetWidth) {
@@ -309,7 +309,7 @@
                     window.removeEventListener('resize', handleResize);
                     clearTimeout(timer);
                 };
-            }, [activeTab, user]); // Pemicu render ulang skala saat ganti tab / login
+            }, [activeTab, user, isGenerating]); // Pemicu render ulang skala saat ganti tab / login / cetak PDF
 
             React.useEffect(() => {
                 const autoLoginWithToken = async () => {
@@ -542,25 +542,37 @@
 
             const handleDownloadPDF = () => {
                 setIsGenerating(true);
-                const element = document.getElementById('raku-invoice-document');
                 
-                element.classList.add('pdf-mode');
+                // Beri jeda 300ms agar React selesai merender ulang elemen ke Skala Asli 1:1
+                setTimeout(() => {
+                    const element = document.getElementById('raku-invoice-document');
+                    element.classList.add('pdf-mode');
 
-                const opt = {
-                    filename: `${invoiceMeta.number.replace(/\//g, '-')}.pdf`,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-                };
+                    const opt = {
+                        filename: `${invoiceMeta.number.replace(/\//g, '-')}.pdf`,
+                        image: { type: 'jpeg', quality: 1.0 },
+                        html2canvas: { 
+                            scale: 2, // Resolusi cetak tajam (DPI Tinggi)
+                            useCORS: true, 
+                            letterRendering: true,
+                            scrollX: 0, // Kunci koordinat X agar tidak tergeser scrollbar
+                            scrollY: 0, // Kunci koordinat Y agar tidak tergeser scrollbar
+                            windowWidth: 1122, // Samakan lebar tangkapan dengan ukuran kertas landscape
+                            windowHeight: 794  // Samakan tinggi tangkapan dengan ukuran kertas landscape
+                        },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+                    };
 
-                html2pdf().set(opt).from(element).save().then(() => {
-                    element.classList.remove('pdf-mode');
-                    setIsGenerating(false);
-                }).catch(() => {
-                    element.classList.remove('pdf-mode');
-                    setIsGenerating(false);
-                    showAlert('Gagal mendownload PDF. Silakan ulangi.', 'error');
-                });
+                    html2pdf().set(opt).from(element).save().then(() => {
+                        element.classList.remove('pdf-mode');
+                        setIsGenerating(false);
+                    }).catch((err) => {
+                        console.error("PDF Render Error: ", err);
+                        element.classList.remove('pdf-mode');
+                        setIsGenerating(false);
+                        showAlert('Gagal mendownload PDF. Silakan ulangi.', 'error');
+                    });
+                }, 300);
             };
 
             const handleSendWhatsApp = () => {
@@ -770,10 +782,10 @@
                             <div 
                                 className="smooth-transition relative origin-top lg:origin-top-left"
                                 style={{
-                                    transform: `scale(${scale})`,
+                                    transform: isGenerating ? 'scale(1)' : `scale(${scale})`, // Paksa skala 1:1 saat proses download berlangsung
                                     width: '1122px', // Lebar Kertas 297mm dalam resolusi pixel standard
                                     height: '794px', // Tinggi Kertas 210mm dalam resolusi pixel standard
-                                    marginBottom: `calc(-794px * (1 - ${scale}))` // Mengurangi ruang kosong sisa scaling di bawah container
+                                    marginBottom: isGenerating ? '0px' : `calc(-794px * (1 - ${scale}))` // Mengurangi ruang kosong sisa scaling di bawah container
                                 }}
                             >
                                 
