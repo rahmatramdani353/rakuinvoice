@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Printer, FileText, Settings, Image as ImageIcon, MessageCircle, Loader2, Save, Check, FilePlus, X, Mail, User, LogOut, AlertCircle, Lock } from 'lucide-react';
 
+// --- Komponen Input Editable ---
 const EditableInput = ({ value, onChange, className = "", type = "text", multiline = false, placeholder = "" }) => {
-  const baseClasses = "w-full bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-500 focus:bg-blue-50 rounded px-1 py-0.5 outline-none transition-colors placeholder-gray-300";
+  const baseClasses = "w-full bg-transparent border border-transparent hover:border-gray-300 focus:border-blue-500 focus:bg-blue-50 rounded px-1 py-0.5 outline-none transition-colors placeholder-gray-300 print:hidden [.pdf-mode_&]:hidden";
+  const displayClasses = "hidden print:block [.pdf-mode_&]:block whitespace-pre-wrap break-words w-full px-1 py-0.5";
   
   if (multiline) {
     return (
-      <div className="w-full relative">
+      <div className="w-full relative group">
         <textarea
           value={value}
           onChange={(e) => {
@@ -21,9 +23,9 @@ const EditableInput = ({ value, onChange, className = "", type = "text", multili
             }
           }}
           placeholder={placeholder}
-          className={`${baseClasses} resize-none overflow-hidden print:hidden [.pdf-mode_&]:hidden ${className}`}
+          className={`${baseClasses} resize-none overflow-hidden ${className}`}
         />
-        <div className={`hidden [.pdf-mode_&]:block whitespace-pre-wrap break-words w-full px-1 py-0.5 ${className}`}>
+        <div className={`${displayClasses} ${className}`}>
           {value || <span className="opacity-0">.</span>}
         </div>
       </div>
@@ -31,21 +33,22 @@ const EditableInput = ({ value, onChange, className = "", type = "text", multili
   }
   
   return (
-    <div className="w-full relative">
+    <div className="w-full relative group">
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={`${baseClasses} print:hidden [.pdf-mode_&]:hidden ${className}`}
+        className={`${baseClasses} ${className}`}
       />
-      <div className={`hidden [.pdf-mode_&]:block whitespace-pre-wrap break-words w-full px-1 py-0.5 ${className}`}>
+      <div className={`${displayClasses} ${className}`}>
         {value || <span className="opacity-0">.</span>}
       </div>
     </div>
   );
 };
 
+// --- Komponen Layar Login ---
 const AuthScreen = ({ onLogin }) => {
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [email, setEmail] = useState('');
@@ -53,8 +56,8 @@ const AuthScreen = ({ onLogin }) => {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
   
+  // Kosongkan untuk mode Demo langsung masuk
   const gasUrl = 'https://script.google.com/macros/s/AKfycbwYgHBKvA1Y-fKfn4RptmQN6ZfHEvX1P9_yDxFGAXt7Cj7fjL3sqo9JYNf3T13FDgiZ-A/exec'; 
 
   const handleAuthSubmit = async (e) => {
@@ -64,13 +67,33 @@ const AuthScreen = ({ onLogin }) => {
     
     if (!gasUrl) {
       if (email && password) {
-        setSuccessMsg('Memasuki Mode Demo...');
-        setTimeout(() => onLogin({ name: isLoginMode ? 'Tamu (Demo)' : name, email }), 1000);
+        setTimeout(() => onLogin({ name: isLoginMode ? 'Tamu (Demo)' : name, email }), 800);
       } else {
         setError('Email dan Password wajib diisi.');
         setLoading(false);
       }
       return;
+    }
+
+    try {
+      const response = await fetch(gasUrl, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: isLoginMode ? 'login' : 'register',
+          email, password, name
+        })
+      });
+      const result = await response.json();
+      if (result.status === 'success') {
+        onLogin(result.user);
+      } else {
+        setError(result.message);
+      }
+    } catch (err) {
+      setError('Gagal terhubung ke server. Menggunakan mode Offline.');
+      setTimeout(() => onLogin({ name: 'Admin Offline', email }), 1000);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -83,73 +106,83 @@ const AuthScreen = ({ onLogin }) => {
             <FileText size={28} />
           </div>
           <h2 className="text-2xl font-black text-gray-900 tracking-tight">RAKU Invoice Pro</h2>
-          <p className="text-gray-500 text-sm mt-2">Sistem manajemen tagihan bisnis</p>
+          <p className="text-gray-500 text-sm mt-2">Sistem manajemen tagihan bisnis otomatis</p>
         </div>
         <form onSubmit={handleAuthSubmit} className="space-y-4">
           {error && <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg flex gap-2 items-center"><AlertCircle size={14} />{error}</div>}
           {!isLoginMode && (
             <div className="relative">
               <User className="absolute left-4 top-3.5 text-gray-400" size={16} />
-              <input type="text" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-gray-50 border rounded-xl outline-none text-sm" />
+              <input type="text" placeholder="Nama Lengkap" required value={name} onChange={(e) => setName(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-gray-50 border rounded-xl outline-none text-sm focus:border-gray-400 focus:bg-white transition-all" />
             </div>
           )}
           <div className="relative">
             <Mail className="absolute left-4 top-3.5 text-gray-400" size={16} />
-            <input type="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-gray-50 border rounded-xl outline-none text-sm" />
+            <input type="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-gray-50 border rounded-xl outline-none text-sm focus:border-gray-400 focus:bg-white transition-all" />
           </div>
           <div className="relative">
             <Lock className="absolute left-4 top-3.5 text-gray-400" size={16} />
-            <input type="password" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-gray-50 border rounded-xl outline-none text-sm" />
+            <input type="password" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-gray-50 border rounded-xl outline-none text-sm focus:border-gray-400 focus:bg-white transition-all" />
           </div>
-          <button type="submit" disabled={loading} className="w-full bg-gray-900 text-white font-semibold py-3 rounded-xl hover:bg-gray-800 transition-all flex items-center justify-center">
-            {loading ? <Loader2 className="animate-spin" size={18} /> : (isLoginMode ? 'Masuk' : 'Daftar')}
+          <button type="submit" disabled={loading} className="w-full bg-gray-900 text-white font-semibold py-3 rounded-xl hover:bg-gray-800 transition-all flex items-center justify-center shadow-lg shadow-gray-900/20">
+            {loading ? <Loader2 className="animate-spin" size={18} /> : (isLoginMode ? 'Masuk' : 'Daftar & Mulai')}
           </button>
         </form>
-        <button onClick={() => setIsLoginMode(!isLoginMode)} className="w-full mt-6 text-sm text-gray-500 font-medium">
-          {isLoginMode ? 'Belum punya akun? Daftar' : 'Sudah punya akun? Masuk'}
+        <button onClick={() => setIsLoginMode(!isLoginMode)} className="w-full mt-6 text-sm text-gray-500 font-medium hover:text-gray-900 transition-colors">
+          {isLoginMode ? 'Belum punya akun? Daftar gratis' : 'Sudah punya akun? Masuk'}
         </button>
       </div>
     </div>
   );
 };
 
+// --- Aplikasi Utama ---
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try { const saved = localStorage.getItem('user'); return saved ? JSON.parse(saved) : null; } catch { return null; }
   });
 
-  const load = (k, d) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : d; } catch { return d; } };
+  const loadLocal = (key, defaultValue) => {
+    try { const saved = localStorage.getItem(key); return saved ? JSON.parse(saved) : defaultValue; } catch { return defaultValue; }
+  };
 
-  const [storeInfo, setStoreInfo] = useState(() => load('storeInfo', { name: 'RAKU Invoice Pro', address: 'Jl. Merdeka No. 1, Jakarta', phone: '08123456789', email: 'hello@raku.com', logo: null }));
-  const [customerInfo, setCustomerInfo] = useState(() => load('customerInfo', { name: 'Pelanggan Baru', address: 'Alamat Klien', email: 'klien@email.com' }));
-  const [invoiceMeta, setInvoiceMeta] = useState(() => load('invoiceMeta', { number: 'INV-2026-001', date: new Date().toISOString().split('T')[0], dueDate: new Date(new Date().setDate(new Date().getDate() + 14)).toISOString().split('T')[0] }));
-  const [items, setItems] = useState(() => load('items', [{ id: 1, name: 'Jasa Professional', quantity: 1, price: 1000000 }]));
-  const [financials, setFinancials] = useState(() => load('financials', { taxRate: 11, discount: 0 }));
-  const [notes, setNotes] = useState(() => load('notes', 'Terima kasih atas kepercayaan Anda.'));
-  const [settings, setSettings] = useState(() => load('settings', { themeColor: '#4f46e5', currency: 'IDR' }));
+  const [storeInfo, setStoreInfo] = useState(() => loadLocal('storeInfo', { name: 'RAKU Studio', address: 'Jl. Merdeka No. 1, Jakarta', phone: '08123456789', email: 'hello@raku.com', logo: null }));
+  const [customerInfo, setCustomerInfo] = useState(() => loadLocal('customerInfo', { name: 'Klien Yth.', address: 'Alamat Klien\nKota', email: 'klien@email.com' }));
+  const [invoiceMeta, setInvoiceMeta] = useState(() => loadLocal('invoiceMeta', { number: `INV-${new Date().getFullYear()}-001`, date: new Date().toISOString().split('T')[0], dueDate: new Date(new Date().setDate(new Date().getDate() + 14)).toISOString().split('T')[0] }));
+  const [items, setItems] = useState(() => loadLocal('items', [{ id: 1, name: 'Jasa Professional', quantity: 1, price: 1500000 }]));
+  const [financials, setFinancials] = useState(() => loadLocal('financials', { taxRate: 11, discount: 0 }));
+  const [notes, setNotes] = useState(() => loadLocal('notes', 'Pembayaran via Transfer Bank BCA:\n1234567890 a.n. Raku\n\nTerima kasih atas kerja samanya.'));
+  const [settings, setSettings] = useState(() => loadLocal('settings', { themeColor: '#4f46e5', currency: 'IDR' }));
 
-  const [showSettings, setShowSettings] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Auto-Save Effect
   useEffect(() => {
-    localStorage.setItem('storeInfo', JSON.stringify(storeInfo));
-    localStorage.setItem('customerInfo', JSON.stringify(customerInfo));
-    localStorage.setItem('invoiceMeta', JSON.stringify(invoiceMeta));
-    localStorage.setItem('items', JSON.stringify(items));
-    localStorage.setItem('financials', JSON.stringify(financials));
-    localStorage.setItem('notes', JSON.stringify(notes));
-    localStorage.setItem('settings', JSON.stringify(settings));
-  }, [storeInfo, customerInfo, invoiceMeta, items, financials, notes, settings]);
+    if (currentUser) {
+      localStorage.setItem('storeInfo', JSON.stringify(storeInfo));
+      localStorage.setItem('customerInfo', JSON.stringify(customerInfo));
+      localStorage.setItem('invoiceMeta', JSON.stringify(invoiceMeta));
+      localStorage.setItem('items', JSON.stringify(items));
+      localStorage.setItem('financials', JSON.stringify(financials));
+      localStorage.setItem('notes', JSON.stringify(notes));
+      localStorage.setItem('settings', JSON.stringify(settings));
+    }
+  }, [storeInfo, customerInfo, invoiceMeta, items, financials, notes, settings, currentUser]);
 
+  // Load PDF Library Dynamically
   useEffect(() => {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-    document.body.appendChild(s);
-    return () => document.body.removeChild(s);
+    if (!document.getElementById('html2pdf-script')) {
+      const script = document.createElement('script');
+      script.id = 'html2pdf-script';
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      document.body.appendChild(script);
+    }
   }, []);
 
-  if (!currentUser) return <AuthScreen onLogin={(u) => { setCurrentUser(u); localStorage.setItem('user', JSON.stringify(u)); }} />;
+  if (!currentUser) {
+    return <AuthScreen onLogin={(user) => { setCurrentUser(user); localStorage.setItem('user', JSON.stringify(user)); }} />;
+  }
 
   const subtotal = items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.price) || 0), 0);
   const tax = subtotal * ((Number(financials.taxRate) || 0) / 100);
@@ -160,74 +193,181 @@ export default function App() {
   const handleDownloadPDF = () => {
     setIsGenerating(true);
     const element = document.getElementById('invoice-content');
-    const opt = { filename: `${invoiceMeta.number}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' } };
-    window.html2pdf().set(opt).from(element).save().then(() => setIsGenerating(false));
+    element.classList.add('pdf-mode'); // Trigger div rendering for textareas
+    
+    const opt = { 
+      filename: `${invoiceMeta.number}.pdf`, 
+      image: { type: 'jpeg', quality: 0.98 }, 
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true }, 
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' } 
+    };
+
+    window.html2pdf().set(opt).from(element).save().then(() => {
+      element.classList.remove('pdf-mode');
+      setIsGenerating(false);
+    });
+  };
+
+  const handleSendWA = () => {
+    const text = `Halo *${customerInfo.name}*,\n\nBerikut ringkasan tagihan Anda:\n\n*No. Invoice:* ${invoiceMeta.number}\n*Tanggal:* ${invoiceMeta.date}\n*Total Tagihan:* ${formatCurrency(total)}\n\nTerima kasih,\n*${storeInfo.name}*`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleNewInvoice = () => {
+    if(window.confirm('Buat invoice baru? Daftar barang dan data klien akan dikosongkan. Profil toko tetap aman.')) {
+      setCustomerInfo({ name: '', address: '', email: '' });
+      setItems([{ id: Date.now(), name: '', quantity: 1, price: 0 }]);
+      setInvoiceMeta({...invoiceMeta, number: `INV-${new Date().getFullYear()}-${Math.floor(Math.random()*1000)}`});
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 py-4 font-sans text-gray-800">
-      <div className="max-w-[297mm] mx-auto mb-4 bg-white p-4 rounded-xl border flex justify-between items-center print:hidden shadow-sm">
-        <h1 className="font-bold text-lg text-indigo-700">RAKU Invoice Pro</h1>
+    <div className="min-h-screen bg-gray-200 py-6 font-sans text-gray-800 print:bg-white print:py-0">
+      
+      {/* Floating Action Bar */}
+      <div className="max-w-[297mm] mx-auto mb-4 bg-white p-4 rounded-xl shadow border border-gray-200 flex justify-between items-center print:hidden">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gray-900 text-white flex items-center justify-center"><FileText size={16}/></div>
+          <div>
+            <h1 className="font-bold text-gray-900 leading-tight">RAKU Invoice Pro</h1>
+            <p className="text-xs text-gray-500">Halo, {currentUser.name}</p>
+          </div>
+        </div>
         <div className="flex gap-2">
-          <button onClick={() => setShowSettings(!showSettings)} className="px-3 py-1.5 bg-gray-100 rounded-lg text-sm font-medium">Pengaturan</button>
-          <button onClick={() => window.open(`https://wa.me/?text=Halo, berikut invoice saya: ${invoiceMeta.number}. Total: ${formatCurrency(total)}`, '_blank')} className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm font-medium">Kirim WA</button>
-          <button onClick={handleDownloadPDF} className="px-3 py-1.5 text-white rounded-lg text-sm font-medium" style={{backgroundColor: settings.themeColor}}>
-            {isGenerating ? '...' : 'Download PDF'}
+          <button onClick={handleNewInvoice} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold flex items-center gap-1 transition">
+            <FilePlus size={16}/> Baru
           </button>
-          <button onClick={() => { setCurrentUser(null); localStorage.removeItem('user'); }} className="text-gray-400 hover:text-red-500"><LogOut size={18} /></button>
+          <button onClick={handleSendWA} className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-semibold flex items-center gap-1 transition shadow-sm shadow-green-500/20">
+            <MessageCircle size={16}/> Kirim WA
+          </button>
+          <button onClick={handleDownloadPDF} disabled={isGenerating} className="px-4 py-2 text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-sm" style={{backgroundColor: settings.themeColor}}>
+            {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16}/>} 
+            {isGenerating ? 'Memproses...' : 'Download PDF'}
+          </button>
+          <button onClick={() => { setCurrentUser(null); localStorage.removeItem('user'); }} className="px-3 py-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="Keluar">
+            <LogOut size={18}/>
+          </button>
         </div>
       </div>
 
-      <div id="invoice-content" className="w-[297mm] min-h-[210mm] bg-white p-8 mx-auto box-border shadow-lg print:shadow-none">
-        <div className="flex justify-between mb-6">
-          <div className="w-1/2 flex gap-4">
-            <div onClick={() => fileInputRef.current?.click()} className="w-16 h-16 border-2 border-dashed flex items-center justify-center cursor-pointer text-gray-400">
-              {storeInfo.logo ? <img src={storeInfo.logo} className="w-full h-full object-contain" /> : <ImageIcon size={20} />}
-            </div>
-            <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => { const r = new FileReader(); r.onload = (e) => setStoreInfo({...storeInfo, logo: e.target.result}); r.readAsDataURL(e.target.files[0]); }} />
-            <div className="flex-1">
-              <EditableInput value={storeInfo.name} onChange={(v) => setStoreInfo({...storeInfo, name: v})} className="text-2xl font-bold" />
-              <EditableInput value={storeInfo.address} onChange={(v) => setStoreInfo({...storeInfo, address: v})} multiline className="text-xs" />
-            </div>
-          </div>
-          <div className="text-right w-1/3">
-            <h2 className="text-3xl font-black uppercase" style={{color: settings.themeColor}}>Invoice</h2>
-            <EditableInput value={invoiceMeta.number} onChange={(v) => setInvoiceMeta({...invoiceMeta, number: v})} className="text-sm font-bold text-right" />
-            <EditableInput type="date" value={invoiceMeta.date} onChange={(v) => setInvoiceMeta({...invoiceMeta, date: v})} className="text-xs text-right" />
-          </div>
-        </div>
-
-        <table className="w-full mb-6">
-          <thead className="border-b" style={{borderColor: settings.themeColor}}>
-            <tr style={{color: settings.themeColor}}>
-              <th className="p-2 text-left text-xs font-bold w-1/2">Deskripsi</th>
-              <th className="p-2 text-center text-xs font-bold w-16">Qty</th>
-              <th className="p-2 text-right text-xs font-bold w-32">Harga</th>
-              <th className="p-2 text-right text-xs font-bold w-40">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map(item => (
-              <tr key={item.id} className="border-b text-xs">
-                <td className="p-1"><EditableInput value={item.name} onChange={(v) => setItems(items.map(i => i.id === item.id ? {...i, name: v} : i))} multiline /></td>
-                <td className="p-1"><EditableInput type="number" value={item.quantity} onChange={(v) => setItems(items.map(i => i.id === item.id ? {...i, quantity: v} : i))} className="text-center" /></td>
-                <td className="p-1"><EditableInput type="number" value={item.price} onChange={(v) => setItems(items.map(i => i.id === item.id ? {...i, price: v} : i))} className="text-right" /></td>
-                <td className="p-1 text-right font-bold">{formatCurrency(item.quantity * item.price)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* A4 Landscape Paper */}
+      <div id="invoice-content" className="w-[297mm] min-h-[210mm] mx-auto bg-white p-[12mm] shadow-2xl print:shadow-none print:p-0 box-border relative">
         
-        <button onClick={() => setItems([...items, {id: Date.now(), name: '', quantity: 1, price: 0}])} className="text-[10px] text-indigo-600 print:hidden">+ Tambah Baris</button>
-
-        <div className="flex justify-between mt-6">
-          <div className="w-1/2"><EditableInput value={notes} onChange={setNotes} multiline className="italic text-xs bg-gray-50 p-2" /></div>
-          <div className="w-1/3 bg-gray-50 p-3 text-xs">
-            <div className="flex justify-between"><span>Subtotal</span> <span>{formatCurrency(subtotal)}</span></div>
-            <div className="flex justify-between"><span>Pajak ({financials.taxRate}%)</span> <span>{formatCurrency(tax)}</span></div>
-            <div className="flex justify-between font-bold border-t mt-2 pt-2 text-sm" style={{color: settings.themeColor}}><span>Total</span> <span>{formatCurrency(total)}</span></div>
+        {/* Header */}
+        <div className="flex justify-between items-start mb-6">
+          <div className="flex gap-4 w-1/2">
+            <div onClick={() => fileInputRef.current?.click()} className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer text-gray-400 hover:bg-gray-50 hover:border-gray-400 transition overflow-hidden print:border-none print:bg-transparent">
+              {storeInfo.logo ? <img src={storeInfo.logo} className="w-full h-full object-contain" alt="Logo" /> : <><ImageIcon size={24} /><span className="text-[10px] mt-1 print:hidden">Klik u/ Logo</span></>}
+            </div>
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => { const r = new FileReader(); r.onload = (e) => setStoreInfo({...storeInfo, logo: e.target.result}); r.readAsDataURL(e.target.files[0]); }} />
+            <div className="flex-1">
+              <EditableInput value={storeInfo.name} onChange={(v) => setStoreInfo({...storeInfo, name: v})} className="text-2xl font-black text-gray-900 tracking-tight" placeholder="Nama Toko" />
+              <EditableInput value={storeInfo.address} onChange={(v) => setStoreInfo({...storeInfo, address: v})} multiline className="text-xs text-gray-600 mt-1 leading-snug" placeholder="Alamat Toko" />
+              <EditableInput value={storeInfo.phone} onChange={(v) => setStoreInfo({...storeInfo, phone: v})} className="text-xs text-gray-600" placeholder="Nomor Telepon" />
+              <EditableInput value={storeInfo.email} onChange={(v) => setStoreInfo({...storeInfo, email: v})} className="text-xs text-gray-600" placeholder="Email" />
+            </div>
+          </div>
+          
+          <div className="w-1/3 text-right">
+            <h2 className="text-4xl font-black uppercase tracking-widest mb-4" style={{color: settings.themeColor}}>Invoice</h2>
+            <div className="flex justify-end items-center gap-2 mb-1">
+              <span className="text-xs font-bold text-gray-400 uppercase w-20">Nomor</span>
+              <EditableInput value={invoiceMeta.number} onChange={(v) => setInvoiceMeta({...invoiceMeta, number: v})} className="text-sm font-bold text-gray-800 text-right w-32" />
+            </div>
+            <div className="flex justify-end items-center gap-2 mb-1">
+              <span className="text-xs font-bold text-gray-400 uppercase w-20">Tanggal</span>
+              <EditableInput type="date" value={invoiceMeta.date} onChange={(v) => setInvoiceMeta({...invoiceMeta, date: v})} className="text-sm font-medium text-gray-800 text-right w-32" />
+            </div>
+            <div className="flex justify-end items-center gap-2">
+              <span className="text-xs font-bold text-gray-400 uppercase w-20">Tempo</span>
+              <EditableInput type="date" value={invoiceMeta.dueDate} onChange={(v) => setInvoiceMeta({...invoiceMeta, dueDate: v})} className="text-sm font-medium text-gray-800 text-right w-32" />
+            </div>
           </div>
         </div>
+
+        {/* Customer Info */}
+        <div className="mb-6">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 border-b pb-1">Ditagihkan Kepada</p>
+          <div className="w-1/2">
+            <EditableInput value={customerInfo.name} onChange={(v) => setCustomerInfo({...customerInfo, name: v})} className="text-sm font-bold text-gray-800" placeholder="Nama Pelanggan" />
+            <EditableInput value={customerInfo.address} onChange={(v) => setCustomerInfo({...customerInfo, address: v})} multiline className="text-xs text-gray-600 leading-snug" placeholder="Alamat Pelanggan" />
+          </div>
+        </div>
+
+        {/* Items Table - Compact for A4 Landscape */}
+        <div className="mb-4">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-y" style={{borderColor: settings.themeColor}}>
+                <th className="py-1.5 px-2 text-xs font-bold w-[50%]" style={{color: settings.themeColor}}>Deskripsi Barang / Jasa</th>
+                <th className="py-1.5 px-2 text-xs font-bold text-center w-[12%]" style={{color: settings.themeColor}}>Qty</th>
+                <th className="py-1.5 px-2 text-xs font-bold text-right w-[18%]" style={{color: settings.themeColor}}>Harga</th>
+                <th className="py-1.5 px-2 text-xs font-bold text-right w-[20%]" style={{color: settings.themeColor}}>Total</th>
+                <th className="w-6 print:hidden"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, index) => (
+                <tr key={item.id} className="border-b border-gray-100 group">
+                  <td className="p-1 align-top"><EditableInput value={item.name} onChange={(v) => setItems(items.map(i => i.id === item.id ? {...i, name: v} : i))} multiline className="text-xs text-gray-800" placeholder="Deskripsi..." /></td>
+                  <td className="p-1 align-top"><EditableInput type="number" value={item.quantity} onChange={(v) => setItems(items.map(i => i.id === item.id ? {...i, quantity: v} : i))} className="text-xs text-center font-medium" /></td>
+                  <td className="p-1 align-top"><EditableInput type="number" value={item.price} onChange={(v) => setItems(items.map(i => i.id === item.id ? {...i, price: v} : i))} className="text-xs text-right font-medium" /></td>
+                  <td className="p-1 align-top text-xs text-right font-bold pt-1.5">{formatCurrency(item.quantity * item.price)}</td>
+                  <td className="p-1 align-top text-center print:hidden">
+                    <button onClick={() => items.length > 1 && setItems(items.filter(i => i.id !== item.id))} className="text-gray-300 hover:text-red-500 pt-1 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14}/></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button onClick={() => setItems([...items, {id: Date.now(), name: '', quantity: 1, price: 0}])} className="mt-1 text-[11px] font-bold text-gray-400 hover:text-gray-800 print:hidden flex items-center gap-1 transition-colors"><Plus size={12}/> Tambah Baris</button>
+        </div>
+
+        {/* Footer & Totals */}
+        <div className="flex justify-between items-start pt-2">
+          <div className="w-[55%]">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Catatan Tambahan</p>
+            <div className="bg-gray-50/50 rounded p-2">
+              <EditableInput value={notes} onChange={setNotes} multiline className="text-[11px] text-gray-600 italic leading-snug" placeholder="Instruksi pembayaran, dll." />
+            </div>
+          </div>
+          
+          <div className="w-[40%]">
+            <div className="flex justify-between text-xs mb-1.5 px-2">
+              <span className="text-gray-500">Subtotal</span>
+              <span className="font-semibold">{formatCurrency(subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-xs mb-1.5 px-2 items-center">
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500">Pajak</span>
+                <div className="flex items-center w-12 bg-gray-50 rounded border print:border-none print:bg-transparent">
+                  <EditableInput type="number" value={financials.taxRate} onChange={(v) => setFinancials({...financials, taxRate: v})} className="text-[11px] text-right p-0" />
+                  <span className="text-[11px] pr-1">%</span>
+                </div>
+              </div>
+              <span className="font-semibold">{formatCurrency(tax)}</span>
+            </div>
+            <div className="flex justify-between text-xs mb-3 px-2 items-center">
+              <span className="text-gray-500">Diskon</span>
+              <div className="flex items-center w-24">
+                <span className="text-[11px] text-gray-400">-Rp</span>
+                <EditableInput type="number" value={financials.discount} onChange={(v) => setFinancials({...financials, discount: v})} className="text-[11px] text-right font-semibold text-red-500 p-0" />
+              </div>
+            </div>
+            <div className="flex justify-between items-center p-3 rounded-lg" style={{backgroundColor: `${settings.themeColor}15`}}>
+              <span className="text-sm font-black" style={{color: settings.themeColor}}>TOTAL</span>
+              <span className="text-base font-black" style={{color: settings.themeColor}}>{formatCurrency(total)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Signature */}
+        <div className="absolute bottom-[12mm] right-[12mm] text-center w-48">
+          <p className="text-[11px] text-gray-500 mb-14">Hormat Kami,</p>
+          <div className="border-b border-gray-400 mb-1 w-full mx-auto"></div>
+          <p className="text-xs font-bold text-gray-800 truncate">{storeInfo.name}</p>
+        </div>
+
       </div>
     </div>
   );
